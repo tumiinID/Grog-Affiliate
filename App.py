@@ -41,7 +41,7 @@ today_str = datetime.now().strftime("%Y-%m-%d")
 user_today_clicks = [log for log in st.session_state.user_logs[current_user] if log == today_str]
 sisa_kuota = MAX_DAILY_GENERATE - len(user_today_clicks)
 
-# 3. INTERFAS UTAMA (PROSES INPUT GAMBAR MULTIMODAL)
+# 3. INTERFAS UTAMA (DENGAN MENU PENGISI SUARA)
 st.title("Buat Konten Campaign. Satu Klik.")
 st.write(f"Selamat bekerja, **{user_name}**. Sisa generate harian: **{sisa_kuota}/{MAX_DAILY_GENERATE}**")
 
@@ -63,13 +63,27 @@ st.markdown("---")
 st.subheader("📝 Deskripsi Kampanye & Manfaat Produk")
 campaign_desc = st.text_area("", placeholder="Tulis info tambahan produk di sini...")
 
-tone = st.selectbox("GAYA BAHASA (TONE)", ["Heboh & Energetic", "Santai & Edukatif", "Formal & Profesional", "Aesthetic & Emosional"])
-durasi = st.selectbox("TARGET DURASI VIDEO", [
-    "15-20 Detik (Gabungan 4 Klip x 4-5 Detik)",
-    "25-30 Detik (Gabungan 6 Klip x 4-5 Detik)",
-    "50-60 Detik (Gabungan 12 Klip x 4-5 Detik)"
-])
-target_platform = st.selectbox("TARGET PLATFORM", ["TikTok & Reels (Rekomendasi)", "YouTube Shorts"])
+# Penambahan Fitur Karakter Suara & Parameter Campaign
+col_a, col_b = st.columns(2)
+with col_a:
+    voice_type = st.selectbox(
+        "KANDIDAT PENGISI SUARA (VO)", 
+        [
+            "Perempuan (Sangat Direkomendasikan untuk K-Pop/Skincare)", 
+            "Laki-laki (Maskulin & Tegas)", 
+            "Dialog Pasangan (Interaksi Laki-laki & Perempuan)",
+            "Suara AI Google Text-to-Speech Standar"
+        ]
+    )
+    tone = st.selectbox("GAYA BAHASA (TONE)", ["Heboh & Energetic", "Santai & Edukatif", "Formal & Profesional", "Aesthetic & Emosional"])
+
+with col_b:
+    durasi = st.selectbox("TARGET DURASI VIDEO", [
+        "15-20 Detik (Gabungan 4 Klip x 4-5 Detik)",
+        "25-30 Detik (Gabungan 6 Klip x 4-5 Detik)",
+        "50-60 Detik (Gabungan 12 Klip x 4-5 Detik)"
+    ])
+    target_platform = st.selectbox("TARGET PLATFORM", ["TikTok & Reels (Rekomendasi)", "YouTube Shorts"])
 
 st.markdown("""
 <style>
@@ -90,47 +104,40 @@ if st.button("✨ Generate Campaign", use_container_width=True):
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # Arsitektur Prompt Dapur Rahasia Bertingkat (Multimodal)
-                system_instruction = """Kamu adalah AI Copywriter Eksekutif dan Ahli Strategi Iklan Video Pendek Konversi Tinggi. 
-Tugas utamanya adalah membaca detail visual gambar 'Product Anchor' (dan gambar opsional model/background jika disediakan), lalu menggabungkannya dengan teks deskripsi dari pengguna.
+                # Arsitektur Prompt Baru dengan Penekanan Konsistensi Suara
+                system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dan Ahli Strategi Iklan Video Pendek Konversi Tinggi. 
+Tugas utamanya adalah membaca detail visual gambar 'Product Anchor' lalu menggabungkannya dengan teks deskripsi dari pengguna.
 
 Hasilkan naskah iklan terstruktur berbasis durasi kelipatan klip 4-5 detik.
 Setiap adegan WAJIB memiliki format:
 1. Scene [Nomor]: [Durasi Detik]
-2. Visual Prompt (Bahasa Inggris detail untuk Leonardo AI): Tulis deskripsi visual yang sangat spesifik yang MEMPERTAHANKAN detail bentuk, warna, dan jenis produk dari gambar Product Anchor yang diberikan agar konsisten. Jangan biarkan produk berubah bentuk di AI generator video.
-3. Narasi/Voiceover (Bahasa Indonesia): Teks persuasif lisan yang sesuai dengan TONE pilihan pengguna."""
+2. Visual Prompt (Bahasa Inggris detail untuk Leonardo AI): Pertahankan detail bentuk, warna, dan jenis produk agar konsisten.
+3. Narasi/Voiceover (Bahasa Indonesia): Teks persuasif lisan yang disesuaikan SECARA KETAT dengan karakter pengisi suara: '{voice_type}' dan TONE: '{tone}' di SELURUH SCENE dari awal hingga akhir video (Kecuali jika dipilih opsi Dialog Pasangan). Jangan mengubah gender pembawa suara di tengah jalan."""
 
                 model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=system_instruction)
                 
-                # Menyusun paket data konten (Gambar + Teks) untuk dikirim ke Gemini
                 content_payload = []
-                
-                # Membuka file gambar ke format PIL Image agar dipahami Gemini
                 prod_img = Image.open(product_file)
-                content_payload.append("Ini adalah gambar utama produk (Product Anchor) yang wajib dianalisis secara presisi: ")
+                content_payload.append("Ini adalah gambar utama produk (Product Anchor): ")
                 content_payload.append(prod_img)
                 
                 if model_file:
-                    mod_img = Image.open(model_file)
-                    content_payload.append("Ini adalah referensi visual model/talent tambahan: ")
-                    content_payload.append(mod_img)
+                    content_payload.append("Ini adalah referensi visual model: ")
+                    content_payload.append(Image.open(model_file))
                     
                 if bg_file:
-                    bg_img = Image.open(bg_file)
-                    content_payload.append("Ini adalah referensi visual latar belakang/background yang diinginkan: ")
-                    content_payload.append(bg_img)
+                    content_payload.append("Ini adalah referensi visual latar belakang: ")
+                    content_payload.append(Image.open(bg_file))
                 
-                # Menambahkan parameter teks
-                user_text_prompt = f"\nInstruksi Tambahan Pengguna:\nDeskripsi Kampanye: {campaign_desc}\nTone Bahasa: {tone}\nPilihan Durasi: {durasi}\nPlatform: {target_platform}"
+                user_text_prompt = f"\nInstruksi Tambahan Pengguna:\nDeskripsi Kampanye: {campaign_desc}\nTarget Platform: {target_platform}"
                 content_payload.append(user_text_prompt)
                 
-                # Kirim paket gabungan foto + teks ke Google Gemini
                 response = model.generate_content(content_payload)
                 
                 st.session_state.user_logs[current_user].append(today_str)
-                st.success("Analisis Visual & Konten Sukses Dibuat!")
+                st.success("Analisis Sukses Dibuat dengan Karakter Suara Konsisten!")
                 st.markdown("### 📋 Hasil Rencana Alur Video Berbasis Visual Produk")
                 st.write(response.text)
                 
             except Exception as e:
-                st.error(f"Gagal memproses gambar. Pastikan format file benar. Eror: {str(e)}")
+                st.error(f"Gagal memproses. Eror: {str(e)}")
