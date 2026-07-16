@@ -17,7 +17,12 @@ MAX_DAILY_GENERATE = 15
 if "user_logs" not in st.session_state:
     st.session_state.user_logs = {}
 
-st.set_page_config(page_title="GROG AFFILIATE AI", layout="centered")
+st.set_page_config(
+    page_title="Grog Affiliate Studio", # Ganti teks ini
+    page_icon="🐸",
+    layout="wide"
+)
+
 
 if "logged_in_user" not in st.session_state:
     st.title("🔒 Akses Terkunci - Uji Coba Internal")
