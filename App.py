@@ -18,11 +18,10 @@ if "user_logs" not in st.session_state:
     st.session_state.user_logs = {}
 
 st.set_page_config(
-    page_title="Grog Affiliate Studio", # Ganti teks ini
+    page_title="Grog Affiliate Studio",
     page_icon="🐸",
     layout="wide"
 )
-
 
 if "logged_in_user" not in st.session_state:
     st.title("🔒 Akses Terkunci - Uji Coba Internal")
@@ -46,8 +45,8 @@ today_str = datetime.now().strftime("%Y-%m-%d")
 user_today_clicks = [log for log in st.session_state.user_logs[current_user] if log == today_str]
 sisa_kuota = MAX_DAILY_GENERATE - len(user_today_clicks)
 
-# 3. INTERFAS UTAMA (DENGAN MENU PENGISI SUARA)
-st.title("Buat Konten Campaign. Satu Klik.")
+# 3. INTERFAS UTAMA (NAMA APLIKASI SUDAH DIPERBARUI)
+st.title("🐸 Grog Affiliate Studio")
 st.write(f"Selamat bekerja, **{user_name}**. Sisa generate harian: **{sisa_kuota}/{MAX_DAILY_GENERATE}**")
 
 st.markdown("---")
@@ -68,7 +67,7 @@ st.markdown("---")
 st.subheader("📝 Deskripsi Kampanye & Manfaat Produk")
 campaign_desc = st.text_area("", placeholder="Tulis info tambahan produk di sini...")
 
-# Penambahan Fitur Karakter Suara & Parameter Campaign
+# Parameter Campaign
 col_a, col_b = st.columns(2)
 with col_a:
     voice_type = st.selectbox(
@@ -104,20 +103,27 @@ if st.button("✨ Generate Campaign", use_container_width=True):
     elif not product_file:
         st.error("Anda wajib mengunggah foto 'Product Anchor' agar AI bisa menganalisis wujud fisik produk!")
     else:
-        with st.spinner("Mengidentifikasi visual produk dan merancang prompt..."):
+        with st.spinner("Mengidentifikasi visual produk dan merancang cerita beserta gambar rekomendasi..."):
             try:
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # Arsitektur Prompt Baru dengan Penekanan Konsistensi Suara
-                system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dan Ahli Strategi Iklan Video Pendek Konversi Tinggi. 
+                # Arsitektur Prompt Baru dengan Instruksi Gambar Rekomendasi Per Scene
+                system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dan Ahli Strategi Iklan Video Pendek Konversi Tinggi dari Grog Affiliate Studio. 
 Tugas utamanya adalah membaca detail visual gambar 'Product Anchor' lalu menggabungkannya dengan teks deskripsi dari pengguna.
 
 Hasilkan naskah iklan terstruktur berbasis durasi kelipatan klip 4-5 detik.
-Setiap adegan WAJIB memiliki format:
+Setiap adegan WAJIB memiliki format terstruktur seperti berikut:
 1. Scene [Nomor]: [Durasi Detik]
 2. Visual Prompt (Bahasa Inggris detail untuk Leonardo AI): Pertahankan detail bentuk, warna, dan jenis produk agar konsisten.
-3. Narasi/Voiceover (Bahasa Indonesia): Teks persuasif lisan yang disesuaikan SECARA KETAT dengan karakter pengisi suara: '{voice_type}' dan TONE: '{tone}' di SELURUH SCENE dari awal hingga akhir video (Kecuali jika dipilih opsi Dialog Pasangan). Jangan mengubah gender pembawa suara di tengah jalan."""
+3. Narasi/Voiceover (Bahasa Indonesia): Teks persuasif lisan yang disesuaikan SECARA KETAT dengan karakter pengisi suara: '{voice_type}' dan TONE: '{tone}' di SELURUH SCENE dari awal hingga akhir video. Jangan mengubah gender pembawa suara di tengah jalan.
+4. Rekomendasi Gambar: Kamu WAJIB menampilkan satu baris kode gambar markdown otomatis menggunakan format link Pollinations AI berdasarkan rangkuman deskripsi visual scene tersebut dalam Bahasa Inggris (tanpa spasi, pisahkan dengan tanda minus). 
+
+Format wajib penulisan kode gambar di bagian akhir setiap scene:
+![Rekomendasi Gambar](https://image.pollinations.ai/p/[deskripsi_visual_singkat_dalam_bahasa_inggris_pisahkan_dengan_minus]?width=600&height=350&seed=[angka_acak])
+
+Contoh penulisan link gambar jika scene tersebut adalah tentang smartphone di atas meja:
+![Rekomendasi Gambar](https://image.pollinations.ai/p/aesthetic-smartphone-on-wooden-table-with-neon-lighting?width=600&height=350&seed=42)"""
 
                 model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=system_instruction)
                 
@@ -140,9 +146,12 @@ Setiap adegan WAJIB memiliki format:
                 response = model.generate_content(content_payload)
                 
                 st.session_state.user_logs[current_user].append(today_str)
-                st.success("Analisis Sukses Dibuat dengan Karakter Suara Konsisten!")
+                st.success("Analisis Sukses Dibuat dengan Gambar Rekomendasi Per Scene!")
+                st.markdown("---")
                 st.markdown("### 📋 Hasil Rencana Alur Video Berbasis Visual Produk")
-                st.write(response.text)
+                
+                # Menggunakan st.markdown agar gambar dari kode markdown Pollinations AI ter-render otomatis di layar
+                st.markdown(response.text)
                 
             except Exception as e:
                 st.error(f"Gagal memproses. Eror: {str(e)}")
