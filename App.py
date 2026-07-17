@@ -1,102 +1,3 @@
-import streamlit as st
-import google.generativeai as genai
-from datetime import datetime
-from PIL import Image
-
-# 1. KONFIGURASI KEAMANAN & DATA USER
-VALID_TOKENS = {
-    "USER-01": "Penguji Satu",
-    "USER-02": "Penguji Dua",
-    "USER-03": "Penguji Tiga",
-    "USER-04": "Penguji Empat",
-    "USER-05": "Penguji Lima"
-}
-
-MAX_DAILY_GENERATE = 15 
-
-if "user_logs" not in st.session_state:
-    st.session_state.user_logs = {}
-
-st.set_page_config(
-    page_title="Grog Affiliate Studio",
-    page_icon="🐸",
-    layout="wide"
-)
-
-if "logged_in_user" not in st.session_state:
-    st.title("🔒 Akses Terkunci - Uji Coba Internal")
-    st.write("Aplikasi ini berada dalam masa validasi tertutup. Masukkan token akses Anda:")
-    
-    token_input = st.text_input("Token Akses", type="password")
-    if st.button("Masuk Sistem"):
-        if token_input in VALID_TOKENS:
-            st.session_state.logged_in_user = token_input
-            st.session_state.user_name = VALID_TOKENS[token_input]
-            if token_input not in st.session_state.user_logs:
-                st.session_state.user_logs[token_input] = []
-            st.rerun()
-        else:
-            st.error("Token salah!")
-    st.stop()
-
-current_user = st.session_state.logged_in_user
-user_name = st.session_state.user_name
-today_str = datetime.now().strftime("%Y-%m-%d")
-user_today_clicks = [log for log in st.session_state.user_logs[current_user] if log == today_str]
-sisa_kuota = MAX_DAILY_GENERATE - len(user_today_clicks)
-
-# 3. INTERFAS UTAMA (NAMA APLIKASI SUDAH DIPERBARUI)
-st.title("🐸 Grog Affiliate Studio")
-st.write(f"Selamat bekerja, **{user_name}**. Sisa generate harian: **{sisa_kuota}/{MAX_DAILY_GENERATE}**")
-
-st.markdown("---")
-
-st.subheader("📦 Product Anchor (Wajib)")
-product_file = st.file_uploader("Upload Foto Produk Utama", type=["jpg", "png", "jpeg"], key="prod")
-
-col1, col2 = st.columns(2)
-with col1:
-    st.subheader("👤 Model (Opsional)")
-    model_file = st.file_uploader("Upload Foto Model", type=["jpg", "png", "jpeg"], key="mod")
-with col2:
-    st.subheader("🖼️ Background (Opsional)")
-    bg_file = st.file_uploader("Upload Foto Background", type=["jpg", "png", "jpeg"], key="bg")
-
-st.markdown("---")
-
-st.subheader("📝 Deskripsi Kampanye & Manfaat Produk")
-campaign_desc = st.text_area("", placeholder="Tulis info tambahan produk di sini...")
-
-# Parameter Campaign
-col_a, col_b = st.columns(2)
-with col_a:
-    voice_type = st.selectbox(
-        "KANDIDAT PENGISI SUARA (VO)", 
-        [
-            "Perempuan (Sangat Direkomendasikan untuk K-Pop/Skincare)", 
-            "Laki-laki (Maskulin & Tegas)", 
-            "Dialog Pasangan (Interaksi Laki-laki & Perempuan)",
-            "Suara AI Google Text-to-Speech Standar"
-        ]
-    )
-    tone = st.selectbox("GAYA BAHASA (TONE)", ["Heboh & Energetic", "Santai & Edukatif", "Formal & Profesional", "Aesthetic & Emosional"])
-
-with col_b:
-    durasi = st.selectbox("TARGET DURASI VIDEO", [
-        "15-20 Detik (Gabungan 4 Klip x 4-5 Detik)",
-        "25-30 Detik (Gabungan 6 Klip x 4-5 Detik)",
-        "50-60 Detik (Gabungan 12 Klip x 4-5 Detik)"
-    ])
-    target_platform = st.selectbox("TARGET PLATFORM", ["TikTok & Reels (Rekomendasi)", "YouTube Shorts"])
-
-st.markdown("""
-<style>
-    div.stButton > button:first-child {
-        background-color: #000000; color: white; font-size: 18px; font-weight: bold; border-radius: 30px; padding: 12px 0px; border: none;
-    }
-</style>
-""", unsafe_allow_html=True)
-
 if st.button("✨ Generate Campaign", use_container_width=True):
     if len(user_today_clicks) >= MAX_DAILY_GENERATE:
         st.error("Kuota harian Anda habis!")
@@ -108,22 +9,19 @@ if st.button("✨ Generate Campaign", use_container_width=True):
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # Arsitektur Prompt Baru dengan Instruksi Gambar Rekomendasi Per Scene
-                system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dan Ahli Strategi Iklan Video Pendek Konversi Tinggi dari Grog Affiliate Studio. 
+                # System Instruction yang diperketat agar menghasilkan pemisah yang konsisten
+                system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dari Grog Affiliate Studio. 
 Tugas utamanya adalah membaca detail visual gambar 'Product Anchor' lalu menggabungkannya dengan teks deskripsi dari pengguna.
 
 Hasilkan naskah iklan terstruktur berbasis durasi kelipatan klip 4-5 detik.
 Setiap adegan WAJIB memiliki format terstruktur seperti berikut:
-1. Scene [Nomor]: [Durasi Detik]
-2. Visual Prompt (Bahasa Inggris detail untuk Leonardo AI): Pertahankan detail bentuk, warna, dan jenis produk agar konsisten.
-3. Narasi/Voiceover (Bahasa Indonesia): Teks persuasif lisan yang disesuaikan SECARA KETAT dengan karakter pengisi suara: '{voice_type}' dan TONE: '{tone}' di SELURUH SCENE dari awal hingga akhir video. Jangan mengubah gender pembawa suara di tengah jalan.
-4. Rekomendasi Gambar: Kamu WAJIB menampilkan satu baris kode gambar markdown otomatis menggunakan format link Pollinations AI berdasarkan rangkuman deskripsi visual scene tersebut dalam Bahasa Inggris (tanpa spasi, pisahkan dengan tanda minus). 
 
-Format wajib penulisan kode gambar di bagian akhir setiap scene:
-![Rekomendasi Gambar](https://image.pollinations.ai/p/[deskripsi_visual_singkat_dalam_bahasa_inggris_pisahkan_dengan_minus]?width=600&height=350&seed=[angka_acak])
+Scene [Nomor]: [Durasi Detik]
+- Visual Prompt: [Prompt detail dalam Bahasa Inggris untuk Leonardo AI]
+- Narasi/Voiceover: [Teks persuasif dalam Bahasa Indonesia sesuai VO: '{voice_type}' dan TONE: '{tone}']
+- Image_Keywords: [Tulis 3-5 kata kunci inti adegan ini dalam Bahasa Inggris, pisahkan HANYA dengan tanda minus tanpa spasi, contoh: sad-person-looking-at-phone]
 
-Contoh penulisan link gambar jika scene tersebut adalah tentang smartphone di atas meja:
-![Rekomendasi Gambar](https://image.pollinations.ai/p/aesthetic-smartphone-on-wooden-table-with-neon-lighting?width=600&height=350&seed=42)"""
+Berikan pembatas yang jelas antar Scene menggunakan tanda '---'."""
 
                 model = genai.GenerativeModel('gemini-2.0-flash', system_instruction=system_instruction)
                 
@@ -146,12 +44,34 @@ Contoh penulisan link gambar jika scene tersebut adalah tentang smartphone di at
                 response = model.generate_content(content_payload)
                 
                 st.session_state.user_logs[current_user].append(today_str)
-                st.success("Analisis Sukses Dibuat dengan Gambar Rekomendasi Per Scene!")
+                st.success("Analisis Sukses Dibuat!")
                 st.markdown("---")
                 st.markdown("### 📋 Hasil Rencana Alur Video Berbasis Visual Produk")
                 
-                # Menggunakan st.markdown agar gambar dari kode markdown Pollinations AI ter-render otomatis di layar
-                st.markdown(response.text)
+                # LOGIKA PINTAR: Memecah teks per scene dan menyisipkan gambar asli lewat kode Python st.image
+                raw_text = response.text
+                scenes = raw_text.split("---")
+                
+                for scene in scenes:
+                    if scene.strip():
+                        # Tampilkan teks naskah scene terlebih dahulu
+                        st.markdown(scene)
+                        
+                        # Cari kata kunci gambar di dalam teks scene untuk dijadikan gambar nyata
+                        if "- Image_Keywords:" in scene:
+                            try:
+                                keywords = scene.split("- Image_Keywords:")[1].strip().split("\n")[0].strip()
+                                # Bersihkan karakter aneh jika ada
+                                keywords = keywords.replace("[", "").replace("]", "")
+                                
+                                # Buat URL Pollinations resmi secara otomatis
+                                image_url = f"https://image.pollinations.ai/p/{keywords}?width=600&height=350&seed=42"
+                                
+                                # Paksa tampilkan sebagai gambar asli di aplikasi Streamlit!
+                                st.image(image_url, caption="💡 Rekomendasi Visual Scene", use_container_width=True)
+                                st.markdown("<br>", unsafe_allow_html=True)
+                            except:
+                                pass
                 
             except Exception as e:
                 st.error(f"Gagal memproses. Eror: {str(e)}")
