@@ -97,7 +97,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-# 3. TOMBOL GENERATE DENGAN FITUR SISTEM DISPLAY GAMBAR OTOMATIS
+# 3. TOMBOL GENERATE (VERSI ANTIBUG - GAMBAR PASTI MUNCUL)
 if st.button("✨ Generate Campaign", use_container_width=True):
     if len(user_today_clicks) >= MAX_DAILY_GENERATE:
         st.error("Kuota harian Anda habis!")
@@ -109,7 +109,7 @@ if st.button("✨ Generate Campaign", use_container_width=True):
                 api_key = st.secrets["GEMINI_API_KEY"]
                 genai.configure(api_key=api_key)
                 
-                # System Instruction diperketat agar memisahkan scene dengan tanda khusus '---'
+                # System Instruction dikembalikan ke format standar yang stabil
                 system_instruction = f"""Kamu adalah AI Copywriter Eksekutif dari Grog Affiliate Studio. 
 Tugas utamanya adalah membaca detail visual gambar 'Product Anchor' lalu menggabungkannya dengan teks deskripsi dari pengguna.
 
@@ -117,9 +117,8 @@ Hasilkan naskah iklan terstruktur berbasis durasi kelipatan klip 4-5 detik.
 Setiap adegan WAJIB memiliki format terstruktur seperti berikut:
 
 Scene [Nomor]: [Durasi Detik]
-- Visual Prompt: [Prompt detail dalam Bahasa Inggris untuk Leonardo AI]
+- Visual Prompt: [Prompt detail dalam Bahasa Inggris untuk Leonardo AI, contoh: Cinematic shot of a luxury watch on a wooden table, neon studio lighting]
 - Narasi/Voiceover: [Teks persuasif dalam Bahasa Indonesia sesuai VO: '{voice_type}' dan TONE: '{tone}']
-- Image_Keywords: [Tulis 3-5 kata kunci inti adegan ini dalam Bahasa Inggris, pisahkan HANYA dengan tanda minus tanpa spasi, contoh: sad-person-looking-at-phone]
 
 Berikan pembatas yang jelas antar Scene menggunakan tanda '---'."""
 
@@ -154,20 +153,29 @@ Berikan pembatas yang jelas antar Scene menggunakan tanda '---'."""
                 
                 for scene in scenes:
                     if scene.strip():
-                        # Tampilkan teks naskah scene
+                        # 1. Tampilkan teks naskah adegan terlebih dahulu
                         st.markdown(scene)
                         
-                        # Sistem Otomatis Mengambil Kata Kunci untuk Ditampilkan Jadi Gambar Nyata
-                        if "- Image_Keywords:" in scene:
+                        # 2. Logika Otomatis: Ambil baris 'Visual Prompt' untuk langsung dijadikan gambar nyata
+                        if "- Visual Prompt:" in scene:
                             try:
-                                keywords = scene.split("- Image_Keywords:")[1].strip().split("\n")[0].strip()
-                                keywords = keywords.replace("[", "").replace("]", "")
+                                # Ambil teks setelah kata Visual Prompt
+                                prompt_text = scene.split("- Visual Prompt:")[1].strip().split("\n")[0].strip()
                                 
-                                # Membuat link request gambar ke Pollinations AI
-                                image_url = f"https://image.pollinations.ai/p/{keywords}?width=600&height=350&seed=42"
+                                # Bersihkan teks agar ramah URL (ganti spasi jadi minus, buang karakter aneh)
+                                clean_keywords = prompt_text.lower()
+                                for char in [".", ",", "(", ")", "[", "]", "'", '"']:
+                                    clean_keywords = clean_keywords.replace(char, "")
+                                clean_keywords = "-".join(clean_keywords.split())
                                 
-                                # Menampilkan gambar secara paksa di Streamlit
-                                st.image(image_url, caption="💡 Rekomendasi Visual Scene", use_container_width=True)
+                                # Potong teks jika terlalu panjang agar link tidak rusak (maksimal 150 karakter)
+                                clean_keywords = clean_keywords[:150]
+                                
+                                # Buat URL gambar resmi
+                                image_url = f"https://image.pollinations.ai/p/{clean_keywords}?width=600&height=350&seed=42"
+                                
+                                # Paksa tampilkan gambar di bawah teks scene tersebut
+                                st.image(image_url, caption="💡 Rekomendasi Visual Scene (Berdasarkan Visual Prompt)", use_container_width=True)
                                 st.markdown("<br>", unsafe_allow_html=True)
                             except:
                                 pass
